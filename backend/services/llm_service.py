@@ -5,7 +5,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 from dotenv import load_dotenv
 
 from backend.utils.pdf_loader import load_pdf
@@ -36,11 +38,10 @@ def chat_service(db: Session, id: UUID, question: str):
         embedding=embeddings
     )
 
-    results = vector_store.similarity_search(question, k=3)
+    retriever = vector_store.as_retriever(search_kwargs={'k': 4})
 
-    context = "\n\n".join([result.page_content for result in results])
 
-    prompt = """
+    prompt_template = """
 You are a helpful document question-answering assistant.
 
 Answer the user's question using only the provided context.
@@ -61,9 +62,22 @@ Question:
 
 Answer:
 """
-    template = PromptTemplate.from_template(prompt)
+    prompt = ChatPromptTemplate.from_template(prompt_template)
+    ouput_parser = StrOutputParser()
 
-    prompt = template.invoke({'context':context, 'question':question})
+    def format_docs(chunks):
+        return "\n\n".join(chunk.page_content for chunk in chunks)
 
-    answer = model.invoke(prompt)
-    return answer.content
+    chain = (
+        RunnableParallel({
+            'context': retriever | format_docs,
+            'question': RunnablePassthrough()
+        })
+        | prompt
+        | model
+        | ouput_parser
+    )
+
+    response = chain.invoke(question)
+
+    return response
