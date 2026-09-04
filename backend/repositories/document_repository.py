@@ -20,3 +20,9 @@ def get_all_documents(db: Session):
     result = db.execute(stmt)
     documents = result.all()
     return documents
+
+def get_file_path(document_id, db: Session):
+    stmt = select(DocumentModel.file_path).where(DocumentModel.id==document_id)
+    
+    result = db.execute(stmt)
+    return result.scalar_one_or_none()

@@ -11,7 +11,7 @@ llm_router = APIRouter(
 
 @llm_router.post('/chat')
 def chat(user_request: UserRequest, db: Session = Depends(get_db)):
-    response = chat_service(db=db, id=user_request.id, question=user_request.question)
+    response = chat_service(db=db, document_id=user_request.id, question=user_request.question)
 
     return {'ai_response': response}
     

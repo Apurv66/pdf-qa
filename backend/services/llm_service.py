@@ -14,16 +14,11 @@ from backend.rag.splitter import split_documents
 from backend.rag.vector_store import create_vector_store
 from backend.rag.retriever import get_retriever
 from backend.utils.format_docs import format_docs
+from backend.repositories.document_repository import get_file_path
 
 
-def chat_service(db: Session, id: UUID, question: str):
-    stmt = select(DocumentModel.file_path).where(DocumentModel.id==id)
-    try:
-        result = db.execute(stmt)
-        file_path = result.scalar_one_or_none()
-
-    except SQLAlchemyError:
-        raise
+def chat_service(db: Session, document_id: UUID, question: str):
+    file_path = get_file_path(document_id=document_id, db=db)
 
     documents = load_pdf(file_path=file_path)
 
